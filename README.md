@@ -9,3 +9,5 @@ The examples in this repository assume that RHACS is installed in the `stackrox`
   Sample operator based Prometheus server configuration.
 * [rhacs](rhacs) —
   Instructions and configuration on the RHACS side.
+* [perses](perses) —
+  Perses Data Source and Dashboard examples.
