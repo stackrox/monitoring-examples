@@ -1,6 +1,6 @@
 # RHACS Custom metrics
 
-RHACS central API service exposes Prometheus metrics on `/metrics` path.
+RHACS central API service (starting from verion 4.9) exposes Prometheus metrics on `/metrics` path.
 The access is subject for authentication, authorization and scoped access control.
 
 ## Configuring role
