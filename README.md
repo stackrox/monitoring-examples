@@ -10,3 +10,8 @@ The examples in this repository assume that RHACS is installed in the `stackrox`
   Instructions and configuration on the RHACS side.
 - [perses](perses) —
   Perses Data Source and Dashboard examples.
+
+## Resources
+
+- **Documentation**: [Red Hat Advanced Cluster Security for Kubernetes](https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_security_for_kubernetes/4.9/).
+- **Official repository**: [stackrox/stackrox](https://github.com/stackrox/stackrox)

@@ -7,4 +7,4 @@ The operator provides a streamlined way to set up monitoring infrastructure thro
 ## Resources
 
 - **Documentation**: [OpenShift Monitoring Overview](https://docs.redhat.com/en/documentation/red_hat_openshift_cluster_observability_operator/1-latest/html-single/about_red_hat_openshift_cluster_observability_operator/index)
-- **Official Repository**: [observability-operator on GitHub](https://github.com/rhobs/observability-operator)
+- **Official repository**: [observability-operator on GitHub](https://github.com/rhobs/observability-operator)
