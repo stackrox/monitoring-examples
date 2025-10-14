@@ -8,17 +8,19 @@ The [dashboard](dashboard.yaml) references some predefined metrics, and some tha
 
 Available by default:
 
-* `rox_central_cfg_total_policies`
-* `rox_central_cert_exp_hours`
+- `rox_central_cfg_total_policies`
+- `rox_central_cert_exp_hours`
 
 Need to be enabled via UI or API:
 
-* `rox_central_image_vuln_deployment_severity`, with at least the following labels:
-  * Cluster
-  * Namespace
-  * Deployment
-  * IsPlatformWorkload
-  * IsFixable
-  * Severity
-* `rox_central_node_vuln_node_severity`, with at least Cluster label.
-* `rox_central_policy_violation_namespace_severity`, with at least Cluster and Namespace labels.
+- `rox_central_image_vuln_deployment_severity`, with at least the following labels:
+  - Cluster
+  - Namespace
+  - Deployment
+  - IsPlatformWorkload
+  - IsFixable
+  - Severity
+- `rox_central_node_vuln_node_severity`, with at least Cluster label.
+- `rox_central_policy_violation_namespace_severity`, with at least Cluster and Namespace labels.
+
+![Screenshot](screenshot.png "Screenshot")
