@@ -5,6 +5,8 @@ metadata:
   namespace: stackrox
 spec:
   serviceAccountName: sample-stackrox-prometheus-server
+  serviceMonitorSelector: {}
+  podMonitorSelector: {}
   resources:
     requests:
       memory: 400Mi
@@ -16,13 +18,15 @@ spec:
   storage:
     volumeClaimTemplate:
       spec:
-        storageClassName: ssd-csi
+        storageClassName: standard-rwo
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
             storage: 10Gi
   securityContext:
     runAsNonRoot: true
+    runAsUser: 65534
+    fsGroup: 65534
   volumes:
     - name: prometheus-token
       projected:
