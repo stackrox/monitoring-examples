@@ -9,7 +9,7 @@
 
 # Generate a private key and certificate:
 openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
-        -subj "/CN=sample-stackrox-monitoring-stack-prometheus.stackrox.svc" \
+        -subj "/CN=monitoring-client" \
         -keyout tls.key -out tls.crt
 
 # Create TLS secret in the current namespace:

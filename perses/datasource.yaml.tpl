@@ -1,15 +1,11 @@
-apiVersion: perses.dev/v1alpha1
+apiVersion: perses.dev/v1alpha2
 kind: PersesDatasource
 metadata:
   name: sample-stackrox-datasource
-  namespace: stackrox
 spec:
   client:
     tls:
-      caCert:
-        certPath: /ca/service-ca.crt
-        type: file
-      enable: true
+      enable: false
   config:
     default: true
     display:
@@ -20,4 +16,4 @@ spec:
         proxy:
           kind: HTTPProxy
           spec:
-            url: 'http://prometheus-operated.stackrox.svc.cluster.local:9090'
+            url: 'http://prometheus-operated.${NAMESPACE}.svc:9090'

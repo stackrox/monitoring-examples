@@ -2,7 +2,6 @@ apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
   name: sample-stackrox-prometheus-server
-  namespace: stackrox
 spec:
   serviceAccountName: sample-stackrox-prometheus-server
   serviceMonitorSelector: {}

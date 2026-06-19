@@ -1,6 +1,6 @@
 # Monitoring components configuration guides and examples
 
-The examples in this repository assume that RHACS is installed in the `stackrox` namespace.
+The examples in this repository assume that RHACS is installed in the current context namespace.
 
 - [cluster-observability-operator](cluster-observability-operator) —
   Sample namespaced monitoring stack configuration.
