@@ -9,7 +9,7 @@ spec:
   scheme: HTTPS
   staticConfigs:
     - targets:
-        - "central:443"
+        - "central.${NAMESPACE}.svc:443"
   tlsConfig:
     ca:
       secret:

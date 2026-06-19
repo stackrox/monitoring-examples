@@ -22,7 +22,7 @@ export TLS_CERT=$(awk '{printf "%s\\n", $0}' tls.crt)
 
 echo "Installing and configuring a monitoring stack instance..."
 oc apply -f cluster-observability-operator/monitoring-stack.yaml
-oc apply -f cluster-observability-operator/scrape-config.yaml
+envsubst < cluster-observability-operator/scrape-config.yaml.tpl | oc apply -f -
 oc apply -f cluster-observability-operator/alert-rules.yaml
 
 echo "Waiting for Prometheus to be ready..."
