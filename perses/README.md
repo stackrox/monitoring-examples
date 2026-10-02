@@ -38,10 +38,10 @@ See [configuring metrics via API](../rhacs/README.md#configuring-metrics-via-api
 for a command that enables all three customizable metrics with these labels.
 
 The vulnerabilities-by-severity chart sums namespace-level counts across the
-selected clusters and namespaces. The dashboard defaults to 24 hours so newly
-collected metrics remain visible. The sample monitoring stack retains one day
-of metrics, while the standalone Prometheus sample retains 30 days. Adjust
-retention if you need more history.
+selected clusters and namespaces. The dashboard defaults to 365 days and the
+sample monitoring stacks retain 365 days to support the monthly critical-CVE
+chart; size their storage appropriately. Shorter retention or a new Prometheus
+instance limits the history available to the chart.
 
 If **Total policies enabled** reads zero, query
 `rox_central_cfg_total_policies` in Prometheus and inspect its `Enabled` label.

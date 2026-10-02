@@ -62,6 +62,8 @@ The kubelet refreshes the projected token; Prometheus reads it from the mounted
 file. Prometheus mounts the injected `service-ca.crt` and uses it to verify
 Central's serving certificate, including its `central-ocp.<namespace>.svc`
 hostname. Client authentication and server TLS verification are independent.
+The sample retains metrics for 365 days for the monthly critical-CVE chart;
+size its persistent volume for your workload (the provided 10Gi is an example).
 
 For other Kubernetes clusters or a Central service without an OpenShift service
 serving certificate, before applying the CA ConfigMap replace its injection

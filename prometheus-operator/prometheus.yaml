@@ -13,7 +13,7 @@ spec:
     limits:
       memory: 2Gi
       cpu: 1
-  retention: 30d
+  retention: 365d
   storage:
     volumeClaimTemplate:
       spec:
