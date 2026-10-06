@@ -1,0 +1,50 @@
+{
+  "comment": [
+    "Access control objects that RHACS is expected to install by default",
+    "(ROX-33524). create-openshift-platform-access-control.sh creates them",
+    "when the provider is absent, reusing objects already present. The auth provider trusts the",
+    "cluster's client CA, so its certificate identities are Kubernetes identities:",
+    "a role mapping matches the certificate common name with the 'name' attribute."
+  ],
+  "permissionSet": {
+    "name": "OpenShift Prometheus Metrics Reader",
+    "description": "For OpenShift Prometheus: read access to Administration for /metrics scraping",
+    "resourceToAccess": {
+      "Administration": "READ_ACCESS"
+    }
+  },
+  "accessScope": {
+    "name": "OpenShift Central Cluster",
+    "description": "Scoped to clusters labeled stackrox.io/central-colocated (set automatically by the operator)",
+    "rules": {
+      "clusterLabelSelectors": [
+        {
+          "requirements": [
+            {
+              "key": "stackrox.io/central-colocated",
+              "op": "EXISTS",
+              "values": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "role": {
+    "name": "OpenShift Prometheus Metrics Reader",
+    "description": "Maps OpenShift Prometheus service account to /metrics read access"
+  },
+  "authProvider": {
+    "name": "OpenShift Platform Client Certificates",
+    "type": "userpki",
+    "enabled": true,
+    "traits": {
+      "mutabilityMode": "ALLOW_MUTATE"
+    }
+  },
+  "platformPrometheus": {
+    "key": "name",
+    "value": "system:serviceaccount:openshift-monitoring:prometheus-k8s",
+    "role": "OpenShift Prometheus Metrics Reader"
+  }
+}

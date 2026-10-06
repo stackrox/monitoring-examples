@@ -1,0 +1,64 @@
+# promtool unit tests for cluster-observability-operator/alert-rules.yaml.
+# Run through tests/manifests_test.py, which extracts the PrometheusRule spec
+# into rules.yaml next to a copy of this file.
+rule_files:
+  - rules.yaml
+
+evaluation_interval: 30s
+
+tests:
+  - interval: 30s
+    name: an unhealthy secured cluster alerts only after the 5m delay
+    input_series:
+      - series: 'rox_central_health_cluster_info{Cluster="production",Status="UNHEALTHY",Upgradability="UP_TO_DATE"}'
+        values: "1+0x40"
+      - series: 'rox_central_health_cluster_info{Cluster="staging",Status="HEALTHY",Upgradability="UP_TO_DATE"}'
+        values: "1+0x40"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: SecuredClusterStatusNotHealthy
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: SecuredClusterStatusNotHealthy
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              Cluster: production
+              Status: UNHEALTHY
+              Upgradability: UP_TO_DATE
+            exp_annotations:
+              summary: production secured cluster status is UNHEALTHY
+              description: The rox_central_health_cluster_info metric for cluster production has Status=UNHEALTHY, expected HEALTHY.
+
+  - interval: 30s
+    name: a healthy secured cluster never alerts
+    input_series:
+      - series: 'rox_central_health_cluster_info{Cluster="production",Status="HEALTHY",Upgradability="UP_TO_DATE"}'
+        values: "1+0x60"
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: SecuredClusterStatusNotHealthy
+        exp_alerts: []
+
+  - interval: 30s
+    name: recovering to HEALTHY resolves the alert
+    input_series:
+      - series: 'rox_central_health_cluster_info{Cluster="production",Status="DEGRADED",Upgradability="UP_TO_DATE"}'
+        values: "1+0x20 _x40"
+      - series: 'rox_central_health_cluster_info{Cluster="production",Status="HEALTHY",Upgradability="UP_TO_DATE"}'
+        values: "_x20 1+0x40"
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: SecuredClusterStatusNotHealthy
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              Cluster: production
+              Status: DEGRADED
+              Upgradability: UP_TO_DATE
+            exp_annotations:
+              summary: production secured cluster status is DEGRADED
+              description: The rox_central_health_cluster_info metric for cluster production has Status=DEGRADED, expected HEALTHY.
+      - eval_time: 20m
+        alertname: SecuredClusterStatusNotHealthy
+        exp_alerts: []

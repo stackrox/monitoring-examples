@@ -1,0 +1,42 @@
+name: Validate examples
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  PROMETHEUS_VERSION: 3.14.0
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gettext-base jq openssl shellcheck
+          python3 -m pip install --upgrade pyyaml
+          archive=prometheus-${PROMETHEUS_VERSION}.linux-amd64
+          curl -fsSL --retry 3 \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/${archive}.tar.gz" \
+            | tar -xz
+          sudo install "${archive}/promtool" /usr/local/bin/
+
+      - name: Check shell scripts
+        run: |
+          mapfile -t scripts < <(git ls-files '*.sh')
+          for script in "${scripts[@]}"; do
+            bash -n "$script"
+          done
+          shellcheck "${scripts[@]}"
+
+      - name: Validate manifests, queries, and alert rules
+        run: python3 -m unittest tests.manifests_test -v
+
+      - name: Test setup and smoke-check behavior
+        run: python3 -m unittest tests.setup_test tests.smoke_test -v

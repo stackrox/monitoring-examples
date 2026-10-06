@@ -1,0 +1,18 @@
+# The operator only reconciles the headless "prometheus-operated" service, which
+# governs the StatefulSet and selects every Prometheus in the namespace. This
+# one addresses this instance alone, so the Perses datasource reaches the
+# Prometheus that scrapes Central even when another runs beside it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-stackrox-prometheus-server
+  labels:
+    app.kubernetes.io/name: prometheus
+spec:
+  selector:
+    app.kubernetes.io/name: prometheus
+    operator.prometheus.io/name: sample-stackrox-prometheus-server
+  ports:
+    - name: web
+      port: 9090
+      targetPort: web

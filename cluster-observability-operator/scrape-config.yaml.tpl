@@ -9,12 +9,12 @@ spec:
   scheme: HTTPS
   staticConfigs:
     - targets:
-        - "central.${NAMESPACE}.svc:443"
+        - "${SCRAPE_SERVICE}.${NAMESPACE}.svc:443"
   tlsConfig:
-    ca:
-      secret:
-        key: ca.pem
-        name: service-ca
+    # The setup script picks the service and its CA together: central-ocp with
+    # the cluster's service CA where RHACS publishes it, and central with the
+    # StackRox CA otherwise. Both reach the same Central endpoint.
+    ca: ${SCRAPE_CA}
     cert:
       secret:
         key: tls.crt

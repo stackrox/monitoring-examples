@@ -16,4 +16,4 @@ spec:
         proxy:
           kind: HTTPProxy
           spec:
-            url: 'http://prometheus-operated.${NAMESPACE}.svc:9090'
+            url: 'http://${PROMETHEUS_SERVICE}.${NAMESPACE}.svc:9090'
