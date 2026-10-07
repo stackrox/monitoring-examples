@@ -34,9 +34,11 @@ Run these commands from the repository root.
 
    Use a token with permission to manage machine access configurations and
    access-control objects (`Access` read/write).
-   Metrics configuration also needs `Administration` read/write. The example script
-   uses `curl -k` for the external Central API; the Prometheus scrape verifies TLS
-   using the configured CA.
+   Metrics configuration also needs `Administration` read/write. Central API
+   requests verify TLS using the system trust store by default. If Central uses
+   a private CA, set `ROX_API_CA_FILE` to a readable PEM CA bundle (for example,
+   `export ROX_API_CA_FILE=/path/to/central-ca.crt`) before running setup. This
+   CA is for the external Central API endpoint, not for the in-cluster scrape.
 
 2. Install the monitoring example:
 
@@ -47,7 +49,10 @@ Run these commands from the repository root.
    `NAMESPACE` defaults to the current OpenShift project. `TIMEOUT` defaults to
    300 seconds for each resource-creation/readiness wait. The script creates the
    monitoring stack, scrape configuration, alert rule, and Perses resources.
-   It waits for this stack's Prometheus StatefulSet to become ready.
+   It creates the annotated `openshift-service-ca.crt` ConfigMap in Central's
+   namespace and waits (up to `TIMEOUT`) for OpenShift to inject its
+   `service-ca.crt` key before configuring the scrape. It waits for this
+   stack's Prometheus StatefulSet to become ready.
 
    The scrape reaches `central-ocp.<namespace>.svc:443` and validates its
    OpenShift-managed serving certificate with the `openshift-service-ca.crt`
@@ -91,6 +96,11 @@ In the Prometheus Targets page, check that
 `scrapeConfig/<namespace>/sample-stackrox-scrape-config` is **UP** without
 `tls_config.cert_file` or `tls_config.key_file` in its generated scrape
 configuration. Confirm it stays UP across token rotation.
+The `StackRoxMetricsScrapeUnavailable` rule alerts after five minutes if this
+example's target is down or absent. It selects the `rhacs_scrape` label supplied
+by the ScrapeConfig, so an unrelated Central scrape cannot mask a missing
+target. Like any rule in the same Prometheus, it cannot alert if Prometheus or
+rule evaluation itself is unavailable.
 
 Run the [COO cluster smoke test](../tests/README.md) to check scraping and the Perses
 resources. In the OpenShift console, open **Observe → Dashboards** and select

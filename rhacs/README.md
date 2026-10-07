@@ -14,6 +14,11 @@ See details on using declarative configuration in [the product documentation](ht
 
 ## Configuring API access
 
+- The [COO setup](../example-openshift-setup.sh) and both RHACS access-control
+  scripts verify Central's HTTPS certificate using the system trust store. For
+  an API endpoint signed by a private CA, export `ROX_API_CA_FILE` with the path
+  to a readable PEM CA bundle before running them. This is separate from the
+  OpenShift service CA injected into the COO scrape ConfigMap.
 - You can store a long-lived ROX API token in a secret.
 - You can configure Prometheus to access RHACS API with a Kubernetes service account token in a few of ways:
   - OpenShift OAuth provider:

@@ -9,6 +9,6 @@ stringData:
       metrics_path: /metrics
       bearer_token_file: /var/run/secrets/tokens/token
       tls_config:
-        insecure_skip_verify: true
+        ca_file: /etc/prometheus/rhacs-ca/service-ca.crt
       static_configs:
-      - targets: ['central:443']
+      - targets: ['central-ocp.${NAMESPACE}.svc:443']

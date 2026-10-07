@@ -62,3 +62,63 @@ tests:
       - eval_time: 20m
         alertname: SecuredClusterStatusNotHealthy
         exp_alerts: []
+
+  - interval: 30s
+    name: a down COO target alerts and recovers
+    input_series:
+      - series: 'up{job="sample-stackrox-metrics",rhacs_scrape="sample-stackrox-scrape-config",instance="central-ocp.stackrox.svc:443"}'
+        values: "0+0x20 1+0x40"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: StackRoxMetricsScrapeUnavailable
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: StackRoxMetricsScrapeUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              scrape_config: sample-stackrox-scrape-config
+              job: sample-stackrox-metrics
+              rhacs_scrape: sample-stackrox-scrape-config
+              instance: central-ocp.stackrox.svc:443
+            exp_annotations:
+              summary: RHACS Central metrics scrape is unavailable
+              description: The sample-stackrox-scrape-config Central target is down or missing from Prometheus. Check the COO ScrapeConfig, target discovery, and scrape authentication/TLS.
+      - eval_time: 20m
+        alertname: StackRoxMetricsScrapeUnavailable
+        exp_alerts: []
+
+  - interval: 30s
+    name: a missing scrape target alerts even when other targets exist and resolves when discovered
+    input_series:
+      - series: 'up{job="sample-stackrox-metrics",instance="central-ocp.stackrox.svc:443"}'
+        values: "1+0x60"
+      - series: 'up{job="sample-stackrox-metrics",rhacs_scrape="sample-stackrox-scrape-config",instance="central-ocp.stackrox.svc:443"}'
+        values: "_x20 1+0x40"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: StackRoxMetricsScrapeUnavailable
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: StackRoxMetricsScrapeUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              scrape_config: sample-stackrox-scrape-config
+              rhacs_scrape: sample-stackrox-scrape-config
+            exp_annotations:
+              summary: RHACS Central metrics scrape is unavailable
+              description: The sample-stackrox-scrape-config Central target is down or missing from Prometheus. Check the COO ScrapeConfig, target discovery, and scrape authentication/TLS.
+      - eval_time: 20m
+        alertname: StackRoxMetricsScrapeUnavailable
+        exp_alerts: []
+
+  - interval: 30s
+    name: healthy COO target does not alert
+    input_series:
+      - series: 'up{job="sample-stackrox-metrics",rhacs_scrape="sample-stackrox-scrape-config",instance="central-ocp.stackrox.svc:443"}'
+        values: "1+0x60"
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: StackRoxMetricsScrapeUnavailable
+        exp_alerts: []

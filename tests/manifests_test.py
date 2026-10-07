@@ -150,6 +150,32 @@ class ManifestTest(unittest.TestCase):
         (port,) = service["spec"]["ports"]
         self.assertEqual((port["port"], port["targetPort"]), (9090, "web"))
 
+    def test_standalone_scrape_verifies_central_serving_certificate(self):
+        directory = ROOT / "prometheus-operator"
+        prometheus = yaml.safe_load((directory / "prometheus.yaml").read_text())["spec"]
+        secret = yaml.safe_load((directory / "additional-scrape-config.yaml").read_text().replace(
+            "${NAMESPACE}", TEMPLATE_ENVIRONMENT["NAMESPACE"]))
+        (scrape,) = yaml.safe_load(secret["stringData"]["prometheus-additional.yaml"])
+        self.assertEqual(scrape["static_configs"][0]["targets"],
+                         ["central-ocp.stackrox.svc:443"])
+        self.assertNotIn("insecure_skip_verify", scrape["tls_config"])
+        ca = yaml.safe_load((directory / "service-ca-configmap.yaml").read_text())
+        self.assertEqual(ca["metadata"]["annotations"],
+                         {"service.beta.openshift.io/inject-cabundle": "true"})
+        volume = next(volume for volume in prometheus["volumes"]
+                      if volume.get("configMap", {}).get("name") == ca["metadata"]["name"])
+        mount = next(mount for mount in prometheus["volumeMounts"]
+                     if mount["name"] == volume["name"])
+        self.assertEqual(scrape["tls_config"]["ca_file"],
+                         f'{mount["mountPath"]}/service-ca.crt')
+
+    def test_standalone_metrics_role_has_only_required_permission(self):
+        configmap = yaml.safe_load((ROOT / "rhacs/declarative-configuration-configmap.yaml").read_text())
+        permissions, role = yaml.safe_load_all(configmap["data"]["prometheus.yaml"])
+        self.assertEqual(permissions["resources"],
+                         [{"resource": "Administration", "access": "READ_ACCESS"}])
+        self.assertEqual(role["permissionSet"], permissions["name"])
+
     def test_each_path_points_the_datasource_at_its_own_prometheus(self):
         setup = (ROOT / "example-openshift-setup.sh").read_text()
         stack = re.search(r"^MONITORING_STACK=(\S+)$", setup, re.MULTILINE).group(1)
@@ -191,6 +217,22 @@ class ManifestTest(unittest.TestCase):
             for layout in config["layouts"] for item in layout["spec"]["items"]
         }
         self.assertEqual(referenced, set(config["panels"]))
+
+    def test_cert_expiry_uses_earliest_certificate_per_component(self):
+        queries = dict(dashboard_queries())
+        self.assertEqual(queries["cert_expiry[0]"],
+                         "min by (Component)(rox_central_cert_exp_hours / 24)")
+
+    def test_scrape_alert_matches_only_the_example_scrape(self):
+        scrape = yaml.safe_load(render(ROOT / "cluster-observability-operator/scrape-config.yaml.tpl"))
+        rules = yaml.safe_load((ROOT / "cluster-observability-operator/alert-rules.yaml").read_text())
+        alert = next(rule for group in rules["spec"]["groups"] for rule in group["rules"]
+                     if rule["alert"] == "StackRoxMetricsScrapeUnavailable")
+        self.assertEqual(alert["labels"]["scrape_config"], scrape["metadata"]["name"])
+        marker = scrape["spec"]["staticConfigs"][0]["labels"]["rhacs_scrape"]
+        self.assertEqual(marker, scrape["metadata"]["name"])
+        self.assertEqual(alert["expr"].count(f'up{{rhacs_scrape="{marker}"}}'), 2)
+        self.assertIn("absent(up{", alert["expr"])
 
     def test_dashboard_variables_are_defined(self):
         config = yaml.safe_load((ROOT / "perses/dashboard.yaml").read_text())["spec"]["config"]

@@ -13,6 +13,13 @@ case "$ROX_API_ENDPOINT" in
   https://*) ;;
   *) echo "ROX_API_ENDPOINT must start with https://" >&2; exit 1 ;;
 esac
+CURL_TLS=()
+if [[ -n "${ROX_API_CA_FILE:-}" ]]; then
+  [[ -f "$ROX_API_CA_FILE" && -r "$ROX_API_CA_FILE" ]] || {
+    echo "ROX_API_CA_FILE must be a readable CA bundle file" >&2; exit 1;
+  }
+  CURL_TLS=(--cacert "$ROX_API_CA_FILE")
+fi
 TIMEOUT=${TIMEOUT:-300}
 [[ "$TIMEOUT" =~ ^[1-9][0-9]*$ ]] || { echo "TIMEOUT must be a positive number of seconds" >&2; exit 1; }
 if [[ -z "${NAMESPACE:-}" ]]; then
@@ -48,6 +55,21 @@ wait_for_resource() {
   done
 }
 
+wait_for_service_ca() {
+  local deadline=$((SECONDS + TIMEOUT)) ca
+  while true; do
+    if ca=$(oc -n "$NAMESPACE" get configmap/openshift-service-ca.crt \
+      -o 'jsonpath={.data.service-ca\.crt}' 2>/dev/null) && [[ -n "$ca" ]]; then
+      return 0
+    fi
+    if (( SECONDS >= deadline )); then
+      echo "Timed out waiting for openshift-service-ca.crt to contain service-ca.crt" >&2
+      return 1
+    fi
+    sleep 2
+  done
+}
+
 # Central reports why a call failed in the response body, which --fail discards.
 CURL_FAIL=--fail-with-body
 curl --help all 2>/dev/null | grep -q -- '--fail-with-body' || CURL_FAIL=--fail
@@ -55,7 +77,7 @@ curl --help all 2>/dev/null | grep -q -- '--fail-with-body' || CURL_FAIL=--fail
 rox_api() {
   local method=$1 path=$2
   shift 2
-  curl "$CURL_FAIL" --silent --show-error -k -X "$method" "$ROX_API_ENDPOINT$path" \
+  curl "$CURL_FAIL" --silent --show-error "${CURL_TLS[@]}" -X "$method" "$ROX_API_ENDPOINT$path" \
     -H "Authorization: Bearer $ROX_API_TOKEN" -H 'Content-Type: application/json' "$@"
 }
 
@@ -79,6 +101,8 @@ echo "Configuring RHACS M2M access for $SCRAPE_IDENTITY..."
 bash rhacs/configure-m2m-metrics-access.sh
 
 echo "Installing and configuring a monitoring stack instance..."
+oc -n "$NAMESPACE" apply -f cluster-observability-operator/service-ca-configmap.yaml
+wait_for_service_ca
 oc -n "$NAMESPACE" apply -f cluster-observability-operator/monitoring-stack.yaml
 wait_for_resource "prometheus.monitoring.rhobs/$MONITORING_STACK" -n "$NAMESPACE"
 # The operator owns the Prometheus resource, but not these three pod/scrape

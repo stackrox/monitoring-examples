@@ -64,6 +64,15 @@ if name == "oc":
     if args[0:2] == ["get", "configmap"]:
         assert namespace == "kube-system", namespace
         finish(output=os.environ["MOCK_CLIENT_CA"])
+    if args[0:2] == ["get", "configmap/openshift-service-ca.crt"]:
+        assert namespace == os.environ.get("NAMESPACE", "stackrox"), namespace
+        assert args[2:] == ["-o", "jsonpath={.data.service-ca\\.crt}"], args
+        resource = "configmap/openshift-service-ca.crt"
+        count = state["gets"].get(resource, 0) + 1
+        writes.append(("count", "gets", resource))
+        if os.environ.get("NEVER_SERVICE_CA") or count < 3:
+            finish(output="")
+        finish(output="-----BEGIN CERTIFICATE-----\nmock\n-----END CERTIFICATE-----")
     # RHACS before 5.0 publishes no central-ocp service.
     if args[0:2] == ["get", "service/central-ocp"]:
         finish(1 if os.environ.get("MOCK_NO_CENTRAL_OCP") else 0)
@@ -86,6 +95,9 @@ if name == "curl":
     if args[0:2] == ["--help", "all"]:
         finish(output="--fail-with-body Fail on HTTP errors but save the body")
     assert {"--fail", "--fail-with-body"} & set(args), "HTTP failures must propagate"
+    assert "-k" not in args and "--insecure" not in args, "Central API must verify TLS"
+    ca_file = os.environ.get("ROX_API_CA_FILE")
+    assert (args[args.index("--cacert") + 1] if "--cacert" in args else None) == ca_file
     if os.environ.get("FAIL_HTTP"):
         finish(22, "HTTP 401")
     method = args[args.index("-X") + 1]
@@ -171,6 +183,7 @@ class SetupTest(unittest.TestCase):
         }
         self.env.pop("NAMESPACE", None)
         self.env.pop("BASH_ENV", None)
+        self.env.pop("ROX_API_CA_FILE", None)
 
     def state(self):
         return json.loads(self.state_path.read_text())
@@ -237,6 +250,22 @@ class SetupTest(unittest.TestCase):
         self.assertEqual(self.scrape_config()["spec"]["tlsConfig"],
                          {"ca": {"configMap": {"name": "openshift-service-ca.crt",
                                                "key": "service-ca.crt"}}})
+        service_ca = yaml.safe_load(
+            (self.repo / "cluster-observability-operator/service-ca-configmap.yaml").read_text())
+        self.assertEqual(service_ca["metadata"]["name"], "openshift-service-ca.crt")
+        self.assertEqual(service_ca["metadata"]["annotations"],
+                         {"service.beta.openshift.io/inject-cabundle": "true"})
+        calls = state["calls"]
+        apply_index = next(i for i, call in enumerate(calls)
+                           if "cluster-observability-operator/service-ca-configmap.yaml" in call)
+        ca_reads = [i for i, call in enumerate(calls)
+                    if "configmap/openshift-service-ca.crt" in call]
+        scrape_index = next(i for i, call in enumerate(calls)
+                            if call[:3] == ["oc", "-n", "custom-rhacs"]
+                            and call[-3:] == ["apply", "-f", "-"])
+        self.assertLess(apply_index, ca_reads[0])
+        self.assertEqual(len(ca_reads), 3)
+        self.assertLess(ca_reads[-1], scrape_index)
         overlay = next(yaml.safe_load(doc) for doc in state["applied"]
                        if yaml.safe_load(doc).get("kind") == "Prometheus")
         self.assertEqual(overlay["metadata"]["namespace"], "custom-rhacs")
@@ -355,6 +384,32 @@ class SetupTest(unittest.TestCase):
         result = self.run_setup()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Timed out waiting for crd/", result.stderr)
+
+    def test_service_ca_timeout_prevents_scrape_setup(self):
+        self.env.update(NEVER_SERVICE_CA="1", TIMEOUT="1")
+        result = self.run_setup()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Timed out waiting for openshift-service-ca.crt", result.stderr)
+        self.assertFalse(any((yaml.safe_load(doc) or {}).get("kind") == "ScrapeConfig"
+                             for doc in self.state()["applied"]))
+
+    def test_custom_ca_is_used_for_all_central_api_calls(self):
+        self.env["ROX_API_CA_FILE"] = str(self.authority / "ca.crt")
+        for run in (self.run_setup, self.run_access_control_setup):
+            result = run()
+            self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [call for call in self.state()["calls"] if call[0] == "curl" and "-X" in call]
+        self.assertGreater(len(calls), 1)
+        self.assertTrue(all(call[call.index("--cacert") + 1] == self.env["ROX_API_CA_FILE"]
+                            for call in calls))
+
+    def test_missing_custom_ca_fails_before_cluster_calls(self):
+        self.env["ROX_API_CA_FILE"] = str(self.directory / "absent.crt")
+        for run in (self.run_setup, self.run_access_control_setup):
+            result = run()
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("ROX_API_CA_FILE", result.stderr)
+        self.assertEqual(self.state()["calls"], [])
 
     def test_overlay_template_failure_does_not_install_the_scrape(self):
         command = self.bin / "envsubst"

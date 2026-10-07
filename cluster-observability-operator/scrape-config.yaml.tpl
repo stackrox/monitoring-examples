@@ -12,6 +12,8 @@ spec:
   staticConfigs:
     - targets:
         - "${SCRAPE_SERVICE}.${NAMESPACE}.svc:443"
+      labels:
+        rhacs_scrape: sample-stackrox-scrape-config
   tlsConfig:
     # Central's service certificate is verified with the OpenShift service CA.
     # The M2M client identity comes from the projected token, not this CA.

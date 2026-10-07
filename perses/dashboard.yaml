@@ -242,7 +242,7 @@ spec:
                 plugin:
                   kind: "PrometheusTimeSeriesQuery"
                   spec:
-                    query: sum by (Component)(rox_central_cert_exp_hours / 24)
+                    query: min by (Component)(rox_central_cert_exp_hours / 24)
                     seriesNameFormat: "{{Component}}"
 
     layouts:

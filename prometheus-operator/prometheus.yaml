@@ -33,9 +33,15 @@ spec:
           - serviceAccountToken:
               path: token
               expirationSeconds: 3600
+    - name: rhacs-serving-ca
+      configMap:
+        name: sample-stackrox-prometheus-service-ca
   volumeMounts:
     - name: prometheus-token
       mountPath: /var/run/secrets/tokens
+      readOnly: true
+    - name: rhacs-serving-ca
+      mountPath: /etc/prometheus/rhacs-ca
       readOnly: true
   additionalScrapeConfigs:
     name: sample-stackrox-prometheus-additional-scrape-configs

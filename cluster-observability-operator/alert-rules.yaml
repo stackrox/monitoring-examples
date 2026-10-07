@@ -17,4 +17,14 @@ spec:
           annotations:
             summary: "{{ $labels.Cluster }} secured cluster status is {{ $labels.Status }}"
             description: "The rox_central_health_cluster_info metric for cluster {{ $labels.Cluster }} has Status={{ $labels.Status }}, expected HEALTHY."
-
+        - alert: StackRoxMetricsScrapeUnavailable
+          expr: |
+            up{rhacs_scrape="sample-stackrox-scrape-config"} == 0
+            or absent(up{rhacs_scrape="sample-stackrox-scrape-config"})
+          for: 5m
+          labels:
+            severity: warning
+            scrape_config: sample-stackrox-scrape-config
+          annotations:
+            summary: "RHACS Central metrics scrape is unavailable"
+            description: "The sample-stackrox-scrape-config Central target is down or missing from Prometheus. Check the COO ScrapeConfig, target discovery, and scrape authentication/TLS."

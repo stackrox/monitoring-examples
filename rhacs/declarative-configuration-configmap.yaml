@@ -6,25 +6,9 @@ data:
   prometheus.yaml: |
     ---
     name: Prometheus Server
-    description: Sample permission set for Prometheus server access
+    description: Read-only access to Central metrics for Prometheus
     resources:
     - resource: Administration
-      access: READ_ACCESS
-    - resource: Alert
-      access: READ_ACCESS
-    - resource: Cluster
-      access: READ_ACCESS
-    - resource: Deployment
-      access: READ_ACCESS
-    - resource: Image
-      access: READ_ACCESS
-    - resource: Integration
-      access: READ_ACCESS
-    - resource: Namespace
-      access: READ_ACCESS
-    - resource: Node
-      access: READ_ACCESS
-    - resource: WorkflowAdministration
       access: READ_ACCESS
     ---
     name: Prometheus Server

@@ -13,6 +13,13 @@ case "$ROX_API_ENDPOINT" in
   https://*) ;;
   *) echo "ROX_API_ENDPOINT must start with https://" >&2; exit 1 ;;
 esac
+CURL_TLS=()
+if [[ -n "${ROX_API_CA_FILE:-}" ]]; then
+  [[ -f "$ROX_API_CA_FILE" && -r "$ROX_API_CA_FILE" ]] || {
+    echo "ROX_API_CA_FILE must be a readable CA bundle file" >&2; exit 1;
+  }
+  CURL_TLS=(--cacert "$ROX_API_CA_FILE")
+fi
 
 ACCESS_CONTROL=rhacs/openshift-platform-access-control.json
 CURL_FAIL=--fail-with-body
@@ -21,7 +28,7 @@ curl --help all 2>/dev/null | grep -q -- '--fail-with-body' || CURL_FAIL=--fail
 rox_api() {
   local method=$1 path=$2
   shift 2
-  curl "$CURL_FAIL" --silent --show-error -k -X "$method" "$ROX_API_ENDPOINT$path" \
+  curl "$CURL_FAIL" --silent --show-error "${CURL_TLS[@]}" -X "$method" "$ROX_API_ENDPOINT$path" \
     -H "Authorization: Bearer $ROX_API_TOKEN" -H 'Content-Type: application/json' "$@"
 }
 
