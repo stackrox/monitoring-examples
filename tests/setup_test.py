@@ -386,7 +386,8 @@ class SetupTest(unittest.TestCase):
         self.assertIn("Timed out waiting for crd/", result.stderr)
 
     def test_service_ca_timeout_prevents_scrape_setup(self):
-        self.env.update(NEVER_SERVICE_CA="1", TIMEOUT="1")
+        # Allow the simulated CRDs to appear before exercising the CA timeout.
+        self.env.update(NEVER_SERVICE_CA="1", TIMEOUT="5")
         result = self.run_setup()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Timed out waiting for openshift-service-ca.crt", result.stderr)
