@@ -38,10 +38,19 @@ See [configuring metrics via API](../rhacs/README.md#configuring-metrics-via-api
 for a command that enables all three customizable metrics with these labels.
 
 The vulnerabilities-by-severity chart sums namespace-level counts across the
-selected clusters and namespaces. The dashboard defaults to 365 days and the
-sample monitoring stacks retain 365 days to support the monthly critical-CVE
-chart; size their storage appropriately. Shorter retention or a new Prometheus
-instance limits the history available to the chart.
+selected clusters and namespaces. The dashboard defaults to 24 hours so newly
+collected metrics remain visible. The sample monitoring stacks retain 365 days
+of data, but shorter retention or a new Prometheus instance limits the history
+available to the charts.
+
+The change-by-severity bar chart subtracts the count from 30 days ago from the
+current count for each severity, using the same cluster and namespace filters.
+When a severity has no sample from 30 days ago, the chart treats its previous
+count as zero, so a new installation shows the current counts. Positive bars
+mean more vulnerable items; negative bars mean fewer. These are namespace-level
+vulnerability counts, not distinct CVE IDs or newly discovered CVEs. Missing
+history can mean either no vulnerabilities or no metrics yet, so an apparent
+increase on a new installation is not necessarily a real 30-day increase.
 
 If **Total policies enabled** reads zero, query
 `rox_central_cfg_total_policies` in Prometheus and inspect its `Enabled` label.

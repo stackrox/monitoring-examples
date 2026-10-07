@@ -228,11 +228,23 @@ class ManifestTest(unittest.TestCase):
         self.assertIn("rox_central_image_vuln_namespace_severity", query)
         self.assertIn("sum by (Severity)", query)
 
+    def test_vulnerability_change_compares_counts_by_severity_30_days_apart(self):
+        config = yaml.safe_load((ROOT / "perses/dashboard.yaml").read_text())["spec"]["config"]
+        panel = config["panels"]["vulnerability_change_by_severity"]["spec"]
+        self.assertEqual(panel["plugin"], {"kind": "BarChart", "spec": {"calculation": "last"}})
+        metric = "rox_central_image_vuln_namespace_severity{Cluster=~'$Cluster',Namespace=~'$Namespace'}"
+        self.assertEqual(dict(dashboard_queries())["vulnerability_change_by_severity[0]"],
+                         f"sum by (Severity)({metric}) - (sum by (Severity)({metric} offset 30d) "
+                         f"or on (Severity) (sum by (Severity)({metric}) * 0))")
+        self.assertEqual(panel["queries"][0]["spec"]["plugin"]["spec"]["seriesNameFormat"],
+                         "{{Severity}}")
+
     def test_image_panels_use_the_configured_namespace_metric(self):
         queries = dict(dashboard_queries())
         for panel in ("total_vulnerabilities[0]", "total_user_fixable_vulnerabilities[0]",
                       "vulnerabilities_by_severity[0]", "fixable_user_workload_vulnerabilities_over_time[0]",
-                      "vulnerabilities_by_asset_over_time[0]", "vulnerabilities_by_asset_over_time[1]"):
+                      "vulnerability_change_by_severity[0]", "vulnerabilities_by_asset_over_time[0]",
+                      "vulnerabilities_by_asset_over_time[1]"):
             with self.subTest(panel=panel):
                 self.assertIn("rox_central_image_vuln_namespace_severity", queries[panel])
         self.assertIn("IsPlatformWorkload='false'", queries["vulnerabilities_by_asset_over_time[0]"])
