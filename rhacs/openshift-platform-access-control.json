@@ -1,8 +1,9 @@
 {
   "comment": [
     "Access control objects that RHACS is expected to install by default",
-    "(ROX-33524). create-openshift-platform-access-control.sh creates them",
-    "when the provider is absent, reusing objects already present. The auth provider trusts the",
+    "(ROX-33524). configure-m2m-metrics-access.sh creates the role and dependencies",
+    "without a certificate provider. create-openshift-platform-access-control.sh also",
+    "reuses these objects when installing the platform provider. That provider trusts the",
     "cluster's client CA, so its certificate identities are Kubernetes identities:",
     "a role mapping matches the certificate common name with the 'name' attribute."
   ],

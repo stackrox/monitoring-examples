@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE_ENVIRONMENT = {
     "NAMESPACE": "stackrox",
     "ROX_API_ENDPOINT": "https://central.example.test",
-    # The setup script picks the Central service and its CA together.
+    # The M2M example uses Central's OpenShift service and its CA.
     "SCRAPE_SERVICE": "central-ocp",
     "SCRAPE_CA": "{configMap: {name: openshift-service-ca.crt, key: service-ca.crt}}",
     # Each deployment path publishes its own Prometheus service.
@@ -85,17 +85,34 @@ class ManifestTest(unittest.TestCase):
         self.assertEqual(objects["platformPrometheus"]["key"], "name")
         self.assertRegex(objects["platformPrometheus"]["value"], r"^system:serviceaccount:[^:]+:[^:]+$")
 
-    def test_scrape_identity_fits_a_certificate_common_name(self):
+    def test_monitoring_stack_matches_its_service_account(self):
         setup = (ROOT / "example-openshift-setup.sh").read_text()
         stack = re.search(r"^MONITORING_STACK=(\S+)$", setup, re.MULTILINE).group(1)
         manifest = yaml.safe_load((ROOT / "cluster-observability-operator/monitoring-stack.yaml").read_text())
         self.assertEqual(manifest["metadata"]["name"], stack)
-        # COO appends "-prometheus" and X.509 allows 64 characters, so the name
-        # has to leave room for a Central namespace of a realistic length.
-        # The setup script rejects longer namespaces with a specific error.
-        namespace = "x" * 16
-        identity = f"system:serviceaccount:{namespace}:{stack}-prometheus"
-        self.assertLessEqual(len(identity), 64, identity)
+        self.assertEqual(stack, "sample-rhacs")
+
+    def test_coo_m2m_scrape_uses_projected_token_without_a_client_certificate(self):
+        directory = ROOT / "cluster-observability-operator"
+        prometheus = yaml.safe_load(render(directory / "prometheus-m2m.yaml.tpl"))
+        scrape = yaml.safe_load(render(directory / "scrape-config.yaml.tpl"))
+        self.assertEqual(prometheus["metadata"]["name"], "sample-rhacs")
+        self.assertEqual(prometheus["metadata"]["namespace"], scrape["metadata"]["namespace"])
+        token = prometheus["spec"]["volumes"][0]["projected"]["sources"][0]["serviceAccountToken"]
+        self.assertEqual(token["audience"], "central.stackrox.io")
+        mount = prometheus["spec"]["volumeMounts"][0]
+        scrape_class = prometheus["spec"]["scrapeClasses"][0]
+        self.assertFalse(scrape_class.get("default", False))
+        self.assertEqual(scrape_class["authorization"]["credentialsFile"],
+                         f'{mount["mountPath"]}/{token["path"]}')
+        self.assertEqual(scrape["spec"]["scrapeClass"], scrape_class["name"])
+        self.assertEqual(scrape["metadata"]["labels"], {"app": "central"})
+        self.assertEqual(scrape["spec"]["staticConfigs"][0]["targets"],
+                         ["central-ocp.stackrox.svc:443"])
+        self.assertEqual(scrape["spec"]["tlsConfig"]["ca"],
+                         {"configMap": {"name": "openshift-service-ca.crt", "key": "service-ca.crt"}})
+        self.assertNotIn("cert", scrape["spec"]["tlsConfig"])
+        self.assertNotIn("keySecret", scrape["spec"]["tlsConfig"])
 
     def test_templates_only_use_substituted_variables(self):
         for path in sorted(ROOT.rglob("*.tpl")):
@@ -104,10 +121,11 @@ class ManifestTest(unittest.TestCase):
                 self.assertTrue(variables)
                 self.assertFalse(variables - set(TEMPLATE_ENVIRONMENT))
 
-    def test_every_scrape_ca_the_setup_selects_renders(self):
+    def test_scrape_ca_the_setup_selects_renders(self):
         setup = (ROOT / "example-openshift-setup.sh").read_text()
         selected = re.findall(r"^\s*SCRAPE_SERVICE=(\S+)\n\s*SCRAPE_CA='(.+)'$", setup, re.MULTILINE)
-        self.assertEqual(len(selected), 2, "expected a central-ocp branch and a fallback")
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0][0], "central-ocp")
         template = ROOT / "cluster-observability-operator/scrape-config.yaml.tpl"
         for service, authority in selected:
             with self.subTest(service=service):

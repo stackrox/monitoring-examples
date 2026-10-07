@@ -2,23 +2,17 @@ apiVersion: monitoring.rhobs/v1alpha1
 kind: ScrapeConfig
 metadata:
   name: sample-stackrox-scrape-config
+  namespace: ${NAMESPACE}
   labels:
     app: central
 spec:
   jobName: sample-stackrox-metrics
   scheme: HTTPS
+  scrapeClass: rhacs-m2m
   staticConfigs:
     - targets:
         - "${SCRAPE_SERVICE}.${NAMESPACE}.svc:443"
   tlsConfig:
-    # The setup script picks the service and its CA together: central-ocp with
-    # the cluster's service CA where RHACS publishes it, and central with the
-    # StackRox CA otherwise. Both reach the same Central endpoint.
+    # Central's service certificate is verified with the OpenShift service CA.
+    # The M2M client identity comes from the projected token, not this CA.
     ca: ${SCRAPE_CA}
-    cert:
-      secret:
-        key: tls.crt
-        name: sample-stackrox-prometheus-tls
-    keySecret:
-      key: tls.key
-      name: sample-stackrox-prometheus-tls

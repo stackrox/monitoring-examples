@@ -6,22 +6,12 @@ The operator provides a streamlined way to set up monitoring infrastructure thro
 
 ## Prerequisites
 
-- An OpenShift cluster with RHACS 4.9 or later, and permission to install operators,
-  create the cluster-scoped `UIPlugin`, and manage resources in the Central namespace.
-- Permission to create `CertificateSigningRequests` and approve them for the
-  `kubernetes.io/kube-apiserver-client` signer. The monitoring stack scrapes
-  Central with a client certificate for its own service account identity, and
-  that signer issues it.
-- Read access to the `client-ca-file` key of the
-  `extension-apiserver-authentication` ConfigMap in `kube-system`. The setup
-   script provisions it with this CA via the RHACS access-control script, and on every later run
-  compares it against the certificates that provider already trusts.
-- Bash, `oc`, `kubectl`, `openssl`, `curl`, `jq`, `base64`, and `envsubst` (gettext).
-  `oc` and `kubectl` must use the same cluster context.
-- Central must be reachable as `central` in the selected namespace. The script
-  selects the service to scrape and the CA that verifies it from what the
-  namespace publishes, so there is nothing to adjust beforehand;
-  `scrape-config.yaml.tpl` takes both as `${SCRAPE_SERVICE}` and `${SCRAPE_CA}`.
+- An OpenShift cluster with RHACS supporting `KUBE_SERVICE_ACCOUNT` machine
+  access configurations, permission to install operators, create the
+  cluster-scoped `UIPlugin`, and manage resources in the Central namespace.
+- RHACS must publish `service/central-ocp` in that namespace. Central must be
+  able to reach the cluster's service-account OIDC discovery document and JWKS.
+- Bash, `oc`, `curl`, `jq`, and `envsubst` (gettext).
 - The COO release selected by the `stable` subscription must provide
   `MonitoringStack` and `ScrapeConfig` (`monitoring.rhobs/v1alpha1`),
   `PrometheusRule` (`monitoring.rhobs/v1`), `UIPlugin`
@@ -42,7 +32,8 @@ Run these commands from the repository root.
    export ROX_API_TOKEN='<your-api-token>'
    ```
 
-   Use a token with permission to read and create auth providers (`Access` read/write).
+   Use a token with permission to manage machine access configurations and
+   access-control objects (`Access` read/write).
    Metrics configuration also needs `Administration` read/write. The example script
    uses `curl -k` for the external Central API; the Prometheus scrape verifies TLS
    using the configured CA.
@@ -58,40 +49,20 @@ Run these commands from the repository root.
    monitoring stack, scrape configuration, alert rule, and Perses resources.
    It waits for this stack's Prometheus StatefulSet to become ready.
 
-   The scrape target and its CA are selected at install time. Where the
-   namespace publishes `service/central-ocp` (RHACS 5.0 and later, annotated
-   with `service.beta.openshift.io/serving-cert-secret-name: central-ocp-tls`),
-   the scrape goes to `central-ocp.<namespace>.svc:443` and verifies the serving
-   certificate with the `openshift-service-ca.crt` ConfigMap, key
-   `service-ca.crt`. The cluster's service CA operator publishes that ConfigMap
-   in every namespace and rotates the serving certificate, so nothing has to be
-   renewed by hand. Otherwise the scrape goes to `central.<namespace>.svc:443`
-   and verifies with `secret/central-tls`, key `ca.pem`, the StackRox CA that
-   signs Central's own serving certificate. Both services reach the same Central
-   endpoint.
+   The scrape reaches `central-ocp.<namespace>.svc:443` and validates its
+   OpenShift-managed serving certificate with the `openshift-service-ca.crt`
+   ConfigMap. The [RHACS M2M script](../rhacs/configure-m2m-metrics-access.sh)
+   provisions the **OpenShift Prometheus Metrics Reader** role when absent and
+   adds an exact service-account `sub` mapping to an existing machine access
+   configuration for this issuer, or creates one. It preserves unrelated
+   mappings and rejects an incompatible existing configuration.
 
-   It also configures authentication and authorization, so neither a manual step
-   in the RHACS console nor a declarative configuration ConfigMap is needed:
-
-   - RHACS is expected to install the **OpenShift Prometheus Metrics Reader**
-     role with its permission set and the **OpenShift Central Cluster** access
-     scope, plus an **OpenShift Platform Client Certificates** auth provider
-     that trusts the cluster's client CA and maps
-     `system:serviceaccount:openshift-monitoring:prometheus-k8s` to that role
-      (ROX-33524); no released version does so yet. When that provider is
-      absent, the script invokes [the RHACS access-control script](../rhacs/create-openshift-platform-access-control.sh)
-      to provision these defaults, reusing any permission set, access scope, or
-      role already present. When the provider exists, setup leaves those objects
-      and its trusted CA untouched.
-   - It requests a client certificate for the monitoring stack's service
-     account, `system:serviceaccount:<namespace>:sample-rhacs-prometheus`,
-     stores it in the `sample-stackrox-prometheus-tls` Secret that the
-     ScrapeConfig mounts, and adds a role mapping from that identity to the
-     same **OpenShift Prometheus Metrics Reader** role. The identity travels in
-     the certificate's common name, which X.509 limits to 64 characters; the
-     script stops with an explicit error when the namespace makes it longer.
-     The certificate is a cluster credential for that service account, so treat
-     the Secret like the account's token and keep it in the Central namespace.
+   COO creates the Prometheus resource from `MonitoringStack/sample-rhacs`.
+   Setup then applies [the Prometheus overlay](prometheus-m2m.yaml.tpl) with
+   Server-Side Apply to its unowned `volumes`, `volumeMounts`, and `scrapeClasses`
+   fields; [the ScrapeConfig](scrape-config.yaml.tpl) selects that class.
+   Prometheus reads a projected, audience-bound service-account token on each
+   scrape. Kubelet renews the token automatically without a Prometheus restart.
 
 3. Enable the [custom metrics](../rhacs/README.md#configuring-metrics-via-api)
    needed by the [dashboard](../perses/README.md). Allow at least one configured
@@ -99,33 +70,39 @@ Run these commands from the repository root.
 
 ## Verify and rerun
 
+The RHACS machine access configuration expects audience `central.stackrox.io`.
+The setup script uses the same value in the projected token, and maps only
+`^system:serviceaccount:<namespace>:sample-rhacs-prometheus$` to the reader
+role. The role needs read access to `Administration` for `GET /metrics`.
+The script does not alter an already-installed permission set with the same
+name; verify it grants that access if a scrape authenticates but returns 403.
+
+COO must not already own the overlay's three Prometheus fields. Server-Side
+Apply refuses ownership conflicts rather than forcing them; inspect
+`oc -n "$NAMESPACE" get prometheus.monitoring.rhobs sample-rhacs -o yaml --show-managed-fields`
+if your COO version differs. The service CA handles server TLS independently
+of M2M client authentication.
+Only trusted administrators should be able to create or edit scrape resources
+selected by this stack: a scrape selecting `rhacs-m2m` can send the token to
+its chosen target. The dedicated audience prevents using that token against
+the Kubernetes API but does not prevent its use against RHACS.
+
+In the Prometheus Targets page, check that
+`scrapeConfig/<namespace>/sample-stackrox-scrape-config` is **UP** without
+`tls_config.cert_file` or `tls_config.key_file` in its generated scrape
+configuration. Confirm it stays UP across token rotation.
+
 Run the [COO cluster smoke test](../tests/README.md) to check scraping and the Perses
 resources. In the OpenShift console, open **Observe → Dashboards** and select
 **Advanced Cluster Security / Overview** to check rendering.
 
-A scrape that authenticates but returns 403 points at the permission set:
-Central authorizes `GET /metrics` with read access to `Administration`, and the
-script does not verify that an already-installed permission set of the same
-name grants it.
-
-The signer sets the certificate's validity period, typically about a month, and
-nothing renews it automatically. Rerun the script before it expires:
-`request-client-certificate.sh` keeps the installed certificate while its subject
-matches and it stays valid for more than `RENEW_BEFORE_DAYS` (default 7), and
-otherwise requests a new one and replaces it in the Secret in place. Prometheus
-picks the renewed files up from the mount without a restart. The script adds no
-duplicate auth providers, access control objects, or role mappings on reruns.
-
-A rotation of the cluster's own signer is a separate matter. The script copies
-`client-ca-file` into the auth provider once, when it creates it, and never
-replaces the CA an existing provider trusts. Each rerun therefore compares the
-SHA-256 fingerprints of the certificates in the provider against the cluster's
-published bundle: it stops with an error when none of them match, because every
-scrape would be rejected, and warns when only some are missing, because
-certificates from a rotated signer will be rejected. Updating the trusted
-certificates is a manual step, in the RHACS console from the `client-ca-file`
-key of `kube-system/extension-apiserver-authentication`, or by deleting the
-provider and letting the next run recreate it.
+On migration from the certificate-backed example, applying the new ScrapeConfig
+removes the TLS client certificate references. The setup script verifies this
+before reporting success. It does **not** delete the old
+`sample-stackrox-prometheus-tls` Secret, the user-certificate auth provider, or
+its role mappings: check for other users before removing those credentials.
+The former certificate-request helper is not part of this example; the
+default setup no longer requires permission to approve CSRs.
 
 ## Resources
 

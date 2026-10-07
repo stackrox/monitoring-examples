@@ -7,8 +7,8 @@ Choose one Prometheus deployment path:
 
 - **OpenShift with Cluster Observability Operator (COO):** follow the
   [setup guide](cluster-observability-operator/README.md), then run
-  `bash example-openshift-setup.sh`. This path authenticates with a client
-  certificate issued by the cluster for the monitoring stack's service account,
+  `bash example-openshift-setup.sh`. This path uses the monitoring stack's
+  automatically rotated service-account token for RHACS M2M authentication
   and installs the Perses console integration.
 - **An existing Prometheus Operator installation:** follow the
   [projected service-account token example](prometheus-operator/README.md).

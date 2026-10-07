@@ -12,11 +12,11 @@ and temporary files.
 | File | Covers |
 | --- | --- |
 | `manifests_test.py` | Manifests, rendered templates, documentation links, dashboard queries/variables, alert-rule behavior, and whether the documented metric labels match the dashboard. |
-| `setup_test.py` | `example-openshift-setup.sh` and the certificate helper: ordering, failure handling, and reruns. |
+| `setup_test.py` | M2M setup, the separate platform-certificate provider script, ordering, failure handling, and reruns. |
 | `smoke_test.py` | `e2e.sh` check logic and cleanup for both paths. |
 
-Dependencies: Python 3 with PyYAML, Bash, OpenSSL, jq, envsubst (gettext), and
-base64. `promtool` from [Prometheus](https://prometheus.io/download/) enables the
+Dependencies: Python 3 with PyYAML, Bash, OpenSSL, jq, and envsubst (gettext).
+`promtool` from [Prometheus](https://prometheus.io/download/) enables the
 PromQL, scrape-configuration, and alert-rule checks, which skip when it is absent.
 `alert_rules_test.yaml` holds the promtool alert cases and runs via
 `manifests_test.py`.
@@ -55,8 +55,8 @@ seconds, so a retry stage can slightly exceed its deadline.
 - RHACS Central 4.9+ and the selected monitoring example already running in the
   same namespace, using the repository's sample resource names and Central
   service endpoint. Prometheus must expose its HTTP API on pod port 9090.
-- **COO:** the monitoring stack's client certificate installed and its service
-  account identity mapped to the RHACS **OpenShift Prometheus Metrics Reader**
+- **COO:** the monitoring stack's projected service-account token and a
+  `KUBE_SERVICE_ACCOUNT` RHACS M2M mapping to the **OpenShift Prometheus Metrics Reader**
   role; the sample MonitoringStack, ScrapeConfig, PersesDatasource, and
   PersesDashboard installed, with the Perses operator/backend running.
 - **prometheus-operator:** the standalone Prometheus, service account, projected

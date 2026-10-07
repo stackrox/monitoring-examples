@@ -1,9 +1,8 @@
 apiVersion: monitoring.rhobs/v1alpha1
 kind: MonitoringStack
 metadata:
-  # COO derives the Prometheus service account name from this name, and the
-  # scrape identity "system:serviceaccount:<namespace>:<name>-prometheus" has to
-  # fit in a 64 character certificate common name.
+  # COO derives the Prometheus service-account name from this name. RHACS M2M
+  # maps the resulting "system:serviceaccount:<namespace>:<name>-prometheus".
   name: sample-rhacs
   finalizers:
     - monitoring.observability.openshift.io/finalizer
