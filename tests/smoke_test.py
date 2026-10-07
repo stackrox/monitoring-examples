@@ -35,6 +35,9 @@ if tool == "kubectl":
     else:
         assert args[:4] == ["--context", "mock-context", "--namespace", "stackrox"], args
         args = args[4:]
+        if args[0] == "--request-timeout=15s":
+            assert args[1] == "get", args
+            args = args[1:]
         if args[0] == "port-forward":
             assert "pod/expected-pod" in args, args
             (root / "forward.pid").write_text(str(os.getpid()))
@@ -45,6 +48,7 @@ if tool == "kubectl":
             assert args[2] == fixtures["workload"], args
             print("StatefulSet rolled out")
         elif args[0] == "get":
+            assert "--request-timeout=15s" in sys.argv, sys.argv
             key = " ".join(args[1:args.index("-o")])
             print(json.dumps(fixtures["resources"][key]))
         else:
@@ -189,6 +193,8 @@ class SmokeTest(unittest.TestCase):
         fixtures["missing_metric"] = "rox_central_cert_exp_hours"
         result, _ = self.run_smoke(["prometheus-operator"], fixtures)
         self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Checking: rox_central_cert_exp_hours", result.stdout)
+        self.assertIn("Timed out: rox_central_cert_exp_hours", result.stderr)
         self.assertIn("Missing fixed metric rox_central_cert_exp_hours", result.stderr)
 
     def test_unavailable_perses_fails_and_cleans_up(self):

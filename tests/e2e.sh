@@ -41,6 +41,7 @@ namespace=${namespace:-default}
 [[ ${#namespace} -le 63 && $namespace =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]] ||
     die "Invalid namespace: $namespace"
 kube=(kubectl --context "$context" --namespace "$namespace")
+get_resource() { "${kube[@]}" --request-timeout=15s get "$@"; }
 echo "Smoke check: path=$path context=$context namespace=$namespace"
 
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/stackrox-smoke.XXXXXX")
@@ -57,17 +58,17 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 # Check the named CR and its exact StatefulSet, rather than any ready Prometheus.
-"${kube[@]}" get "prometheuses.$group" "$prometheus" -o json > "$tmp/prometheus.json"
+get_resource "prometheuses.$group" "$prometheus" -o json > "$tmp/prometheus.json"
 prometheus_uid=$(jq -er '.metadata.uid' "$tmp/prometheus.json")
 statefulset="prometheus-$prometheus"
-"${kube[@]}" get statefulset "$statefulset" -o json > "$tmp/statefulset.json"
+get_resource statefulset "$statefulset" -o json > "$tmp/statefulset.json"
 jq -e --arg uid "$prometheus_uid" '
     (.spec.replicas > 0) and
     any(.metadata.ownerReferences[]?; .uid == $uid and .kind == "Prometheus")
 ' "$tmp/statefulset.json" >/dev/null || die "Expected a nonzero StatefulSet owned by $prometheus"
 "${kube[@]}" rollout status "statefulset/$statefulset" --timeout="${timeout}s"
 statefulset_uid=$(jq -er '.metadata.uid' "$tmp/statefulset.json")
-"${kube[@]}" get pods -o json > "$tmp/pods.json"
+get_resource pods -o json > "$tmp/pods.json"
 pod=$(jq -er --arg uid "$statefulset_uid" '
     [.items[] | select(.metadata.deletionTimestamp == null) |
      select(any(.metadata.ownerReferences[]?; .uid == $uid)) |
@@ -94,7 +95,9 @@ base="http://127.0.0.1:$port"
 
 retry() {
     local description=$1 deadline=$((SECONDS + timeout))
+    local next_update=$((SECONDS + 10))
     shift
+    echo "Checking: $description (up to ${timeout}s)"
     while true; do
         kill -0 "$forward_pid" 2>/dev/null || { cat "$tmp/port-forward.log" >&2; die "Port-forward exited"; }
         if "$@"; then
@@ -102,6 +105,10 @@ retry() {
             return 0
         fi
         (( SECONDS < deadline )) || { echo "Timed out: $description" >&2; return 1; }
+        if (( SECONDS >= next_update )); then
+            echo "Still waiting: $description" >&2
+            next_update=$((SECONDS + 10))
+        fi
         sleep 2
     done
 }
@@ -158,7 +165,7 @@ if [[ $path == coo ]]; then
     # Perses v1alpha2 uses Available/Degraded, not Ready. Some operator versions
     # omit observedGeneration; enforce freshness when it is actually reported.
     check_perses() {
-        "${kube[@]}" get "$1" "$2" -o json > "$tmp/perses.json" || return 1
+        get_resource "$1" "$2" -o json > "$tmp/perses.json" || return 1
         jq -e '
             .metadata.generation as $generation |
             any(.status.conditions[]?;

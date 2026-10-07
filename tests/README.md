@@ -46,6 +46,9 @@ that context for the run. The optional second argument selects the namespace.
 `SMOKE_TIMEOUT_SECONDS` is a per-stage retry/readiness timeout, not a whole-run
 deadline (default 300, range 1–86400). Individual HTTP calls time out after 15
 seconds, so a retry stage can slightly exceed its deadline.
+The script prints the current check and periodic waiting messages while retrying.
+Kubernetes `get` requests have a 15-second request timeout so an unresponsive API
+does not silently block a check indefinitely.
 
 ## Prerequisites and permissions
 
