@@ -39,9 +39,9 @@ for a command that enables all three customizable metrics with these labels.
 
 The vulnerabilities-by-severity chart sums namespace-level counts across the
 selected clusters and namespaces. The dashboard defaults to 24 hours so newly
-collected metrics remain visible. The sample monitoring stacks retain 365 days
-of data, but shorter retention or a new Prometheus instance limits the history
-available to the charts.
+collected metrics remain visible. The sample monitoring stacks retain 45 days
+of data, giving the 30-day comparison some margin. Shorter retention or a new
+Prometheus instance limits the history available to the charts.
 
 The change-by-severity bar chart subtracts the count from 30 days ago from the
 current count for each severity, using the same cluster and namespace filters.

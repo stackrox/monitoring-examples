@@ -259,6 +259,12 @@ class ManifestTest(unittest.TestCase):
         config = yaml.safe_load((ROOT / "perses/dashboard.yaml").read_text())["spec"]["config"]
         self.assertEqual(config["duration"], "24h")
 
+    def test_sample_retention_covers_30_day_comparison(self):
+        stack = yaml.safe_load((ROOT / "cluster-observability-operator/monitoring-stack.yaml").read_text())
+        prometheus = yaml.safe_load((ROOT / "prometheus-operator/prometheus.yaml").read_text())
+        self.assertEqual(stack["spec"]["retention"], "45d")
+        self.assertEqual(prometheus["spec"]["retention"], "45d")
+
     def test_scrape_alert_matches_only_the_example_scrape(self):
         scrape = yaml.safe_load(render(ROOT / "cluster-observability-operator/scrape-config.yaml.tpl"))
         rules = yaml.safe_load((ROOT / "cluster-observability-operator/alert-rules.yaml").read_text())

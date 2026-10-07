@@ -54,9 +54,9 @@ Run these commands from the repository root.
    `service-ca.crt` key before configuring the scrape. It waits for this
    stack's Prometheus StatefulSet to become ready.
 
-   The sample retains metrics for 365 days to support the monthly critical-CVE
-   chart. Size storage for your environment and use persistent storage if the
-   history must survive Prometheus pod recreation.
+   The sample retains metrics for 45 days to support the 30-day vulnerability
+   comparison. Size storage for your environment and use persistent storage if
+   the history must survive Prometheus pod recreation.
 
    The scrape reaches `central-ocp.<namespace>.svc:443` and validates its
    OpenShift-managed serving certificate with the `openshift-service-ca.crt`

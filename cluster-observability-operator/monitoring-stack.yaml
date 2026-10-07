@@ -23,4 +23,4 @@ spec:
     requests:
       cpu: 100m
       memory: 256Mi
-  retention: 365d
+  retention: 45d
