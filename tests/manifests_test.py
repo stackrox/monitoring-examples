@@ -223,6 +223,30 @@ class ManifestTest(unittest.TestCase):
         self.assertEqual(queries["cert_expiry[0]"],
                          "min by (Component)(rox_central_cert_exp_hours / 24)")
 
+    def test_vulnerabilities_by_severity_uses_namespace_metric(self):
+        query = dict(dashboard_queries())["vulnerabilities_by_severity[0]"]
+        self.assertIn("rox_central_image_vuln_namespace_severity", query)
+        self.assertIn("sum by (Severity)", query)
+
+    def test_image_panels_use_the_configured_namespace_metric(self):
+        queries = dict(dashboard_queries())
+        for panel in ("total_vulnerabilities[0]", "total_user_fixable_vulnerabilities[0]",
+                      "vulnerabilities_by_severity[0]", "fixable_user_workload_vulnerabilities_over_time[0]",
+                      "vulnerabilities_by_asset_over_time[0]", "vulnerabilities_by_asset_over_time[1]"):
+            with self.subTest(panel=panel):
+                self.assertIn("rox_central_image_vuln_namespace_severity", queries[panel])
+        self.assertIn("IsPlatformWorkload='false'", queries["vulnerabilities_by_asset_over_time[0]"])
+        self.assertIn("IsPlatformWorkload='true'", queries["vulnerabilities_by_asset_over_time[1]"])
+        self.assertIn("rox_central_node_vuln_node_severity", queries["vulnerabilities_by_asset_over_time[2]"])
+
+    def test_enabled_policies_filter_matches_exporter_label(self):
+        self.assertEqual(dict(dashboard_queries())["total_policies_enabled[0]"],
+                         "sum(rox_central_cfg_total_policies{Enabled='true'})")
+
+    def test_dashboard_defaults_to_recent_data(self):
+        config = yaml.safe_load((ROOT / "perses/dashboard.yaml").read_text())["spec"]["config"]
+        self.assertEqual(config["duration"], "24h")
+
     def test_scrape_alert_matches_only_the_example_scrape(self):
         scrape = yaml.safe_load(render(ROOT / "cluster-observability-operator/scrape-config.yaml.tpl"))
         rules = yaml.safe_load((ROOT / "cluster-observability-operator/alert-rules.yaml").read_text())

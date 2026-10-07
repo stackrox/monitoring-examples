@@ -93,7 +93,7 @@ spec:
                 plugin:
                   kind: "PrometheusTimeSeriesQuery"
                   spec:
-                    query: sum(rox_central_image_vuln_deployment_severity{Cluster=~'$Cluster',Namespace=~'$Namespace'})
+                    query: sum(rox_central_image_vuln_namespace_severity{Cluster=~'$Cluster',Namespace=~'$Namespace'})
 
       "total_user_fixable_vulnerabilities":
         kind: "Panel"
@@ -110,7 +110,7 @@ spec:
                 plugin:
                   kind: "PrometheusTimeSeriesQuery"
                   spec:
-                    query: sum(rox_central_image_vuln_deployment_severity{Cluster=~'$Cluster',Namespace=~'$Namespace',IsFixable="true",IsPlatformWorkload="false"})
+                    query: sum(rox_central_image_vuln_namespace_severity{Cluster=~'$Cluster',Namespace=~'$Namespace',IsFixable="true",IsPlatformWorkload="false"})
 
       "vulnerabilities_by_severity":
         kind: "Panel"
@@ -127,7 +127,7 @@ spec:
                 plugin:
                   kind: "PrometheusTimeSeriesQuery"
                   spec:
-                    query: sum by (Severity)(rox_central_image_vuln_deployment_severity{Cluster=~'$Cluster',Namespace=~'$Namespace'})
+                    query: sum by (Severity)(rox_central_image_vuln_namespace_severity{Cluster=~'$Cluster',Namespace=~'$Namespace'})
                     seriesNameFormat: "{{Severity}}"
 
       "fixable_user_workload_vulnerabilities_over_time":
@@ -148,7 +148,7 @@ spec:
                 plugin:
                   kind: "PrometheusTimeSeriesQuery"
                   spec:
-                    query: sum by(Severity)(rox_central_image_vuln_deployment_severity{Cluster=~'$Cluster',Namespace=~'$Namespace',IsFixable="true",IsPlatformWorkload="false"})
+                    query: sum by(Severity)(rox_central_image_vuln_namespace_severity{Cluster=~'$Cluster',Namespace=~'$Namespace',IsFixable="true",IsPlatformWorkload="false"})
                     seriesNameFormat: "{{Severity}}"
 
       "vulnerabilities_by_asset_over_time":
@@ -169,14 +169,14 @@ spec:
                 plugin:
                   kind: "PrometheusTimeSeriesQuery"
                   spec:
-                    query: sum(rox_central_image_vuln_deployment_severity{Cluster=~'$Cluster',Namespace=~'$Namespace',IsPlatformWorkload='false'})
+                    query: sum(rox_central_image_vuln_namespace_severity{Cluster=~'$Cluster',Namespace=~'$Namespace',IsPlatformWorkload='false'})
                     seriesNameFormat: User Image vulnerabilities
             - kind: "TimeSeriesQuery"
               spec:
                 plugin:
                   kind: "PrometheusTimeSeriesQuery"
                   spec:
-                    query: sum(rox_central_image_vuln_deployment_severity{Cluster=~'$Cluster',Namespace=~'$Namespace',IsPlatformWorkload='true'})
+                    query: sum(rox_central_image_vuln_namespace_severity{Cluster=~'$Cluster',Namespace=~'$Namespace',IsPlatformWorkload='true'})
                     seriesNameFormat: Platform Image vulnerabilities
             - kind: "TimeSeriesQuery"
               spec:
@@ -355,5 +355,5 @@ spec:
             kind: PrometheusLabelValuesVariable
             spec:
               labelName: Namespace
-    duration: 30d
+    duration: 24h
     refreshInterval: 1m

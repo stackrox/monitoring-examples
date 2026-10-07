@@ -2,6 +2,7 @@
 
 RHACS central API service (starting from version 4.9) exposes Prometheus metrics on `/metrics` path on port https (443).
 The access is subject for authentication, authorization and scoped access control.
+On OpenShift with RHACS 5.0, use `central-ocp.<namespace>.svc:443` for in-cluster metrics consumers: unlike `central`, this service presents an OpenShift service serving certificate. Trust the OpenShift service CA bundle (for example, from an injected ConfigMap) and keep the client authentication configured separately. The `central` service uses RHACS's own certificate and does not use that CA bundle.
 
 ## Configuring role
 
@@ -46,6 +47,8 @@ For a certificate-authenticated Prometheus other than built-in platform monitori
 [openshift-platform-access-control.json](openshift-platform-access-control.json) holds these definitions; when provisioning an absent provider, the script reuses any permission set, access scope, or role already present by name.
 Note that X.509 limits a common name to 64 characters, so long namespace and service account names cannot be expressed as a certificate identity.
 
+For both bearer tokens and client certificates, TLS verification of the server is independent of RHACS API authentication.
+
 ## Configuring metrics via API
 
 Some of the exposed metrics are fixed: they are always exposed with a fixed set of labels.
@@ -74,7 +77,7 @@ curl "$ROX_API_ENDPOINT/v1/config" -H "Authorization: Bearer $ROX_API_TOKEN" | j
 The public and the private parts can also be fetched separately with `/v1/config/public` and `/v1/config/private`.
 Note that these paths are read-only: the configuration can only be updated with PUT on `/v1/config`, which takes the complete configuration.
 
-To configure custom metrics, retrieve the current configuration, add or modify the `metrics` key under `privateConfig`, and send the complete configuration back. For example, the following enables the metric descriptors used by the Perses dashboard (and an additional image metric grouped by namespace). It replaces the descriptors in these three metric groups; preserve any existing descriptors you also need.
+To configure custom metrics, retrieve the current configuration, add or modify the `metrics` key under `privateConfig`, and send the complete configuration back. For example, the following enables the metric descriptors used by the Perses dashboard, including a namespace-level vulnerability metric with the labels needed for the image charts. It replaces the descriptors in these three metric groups; preserve any existing descriptors you also need.
 
 ```sh
 curl -s "$ROX_API_ENDPOINT/v1/config" -H "Authorization: Bearer $ROX_API_TOKEN" | \
@@ -82,11 +85,8 @@ curl -s "$ROX_API_ENDPOINT/v1/config" -H "Authorization: Bearer $ROX_API_TOKEN" 
       .privateConfig.metrics.imageVulnerabilities = {
         gatheringPeriodMinutes: 10,
         descriptors: {
-          deployment_severity: {
-            labels: ["Cluster", "Namespace", "Deployment", "IsPlatformWorkload", "IsFixable", "Severity"]
-          },
           namespace_severity: {
-            labels: ["Cluster", "Namespace", "Severity"]
+            labels: ["Cluster", "Namespace", "IsPlatformWorkload", "IsFixable", "Severity"]
           }
         }
       } |
